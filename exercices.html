@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+<meta charset="utf-8" />
+<title>مجسمات 3D مع خطوات الحساب</title>
+<style>
+  html,body { height:100%; margin:0; font-family: Tahoma, Arial, sans-serif; background:#eef9ff; }
+  #ui {
+    position:absolute; top:10px; left:10px;
+    background:rgba(255,255,255,0.97); padding:15px;
+    border-radius:10px; width:320px; z-index:20;
+    box-shadow:0 6px 14px rgba(0,0,0,0.15);
+    direction: rtl; text-align: right;
+  }
+  label, select, input, button {
+    display:block; margin:6px 0; padding:6px;
+    width:100%; box-sizing:border-box;
+  }
+  button { background:#2194ce; color:#fff; border:none; cursor:pointer; border-radius:6px; }
+  #result { margin-top:8px; padding:8px; background:#eef; border-radius:8px; }
+  pre { background:#fff; padding:8px; border-radius:6px; font-size:14px; line-height:1.4; }
+  canvas { position:fixed; inset:0; width:100%; height:100%; z-index:0; display:block; }
+</style>
+</head>
+<body>
+
+<div id="ui">
+  <h3>حساب مساحة وحجم المجسمات</h3>
+  <label>اختر نوع المجسم:</label>
+  <select id="shape">
+    <option value="cube">مكعب</option>
+    <option value="cuboid">متوازي المستطيلات</option>
+    <option value="sphere">كرة</option>
+    <option value="cylinder">أسطوانة</option>
+    <option value="cone">مخروط</option>
+  </select>
+  <div id="inputs"></div>
+  <button onclick="calculate()">احسب</button>
+  <div id="result"></div>
+</div>
+
+<!-- Three.js r146 -->
+<script src="https://cdn.jsdelivr.net/npm/three@0.146.0/build/three.min.js"></script>
+
+<script>
+let scene, camera, renderer, mesh;
+
+function init() {
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0xeaf8ff);
+
+  camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 2000);
+  camera.position.set(140, 120, 160);
+  camera.lookAt(0,50,0);
+
+  renderer = new THREE.WebGLRenderer({antialias:true});
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  document.body.appendChild(renderer.domElement);
+
+  const light = new THREE.DirectionalLight(0xffffff,1);
+  light.position.set(100,200,100);
+  scene.add(light);
+  scene.add(new THREE.AmbientLight(0x404040,0.7));
+
+  scene.add(new THREE.GridHelper(300,20));
+
+  animate();
+}
+
+function updateInputs() {
+  const shape = document.getElementById('shape').value;
+  const div = document.getElementById('inputs');
+  div.innerHTML = '';
+  if(shape==='cube'){
+    div.innerHTML='<label>الطول a:</label><input id="a" type="number" value="50">';
+  } else if(shape==='cuboid'){
+    div.innerHTML='<label>الطول l:</label><input id="l" type="number" value="80">'+
+                  '<label>العرض w:</label><input id="w" type="number" value="50">'+
+                  '<label>الارتفاع h:</label><input id="h" type="number" value="60">';
+  } else if(shape==='sphere'){
+    div.innerHTML='<label>نصف القطر r:</label><input id="r" type="number" value="50">';
+  } else if(shape==='cylinder'||shape==='cone'){
+    div.innerHTML='<label>نصف القطر r:</label><input id="r" type="number" value="40">'+
+                  '<label>الارتفاع h:</label><input id="h" type="number" value="80">';
+  }
+}
+
+function drawShape(shape, d){
+  if(mesh) scene.remove(mesh);
+  let g;
+  const m = new THREE.MeshPhongMaterial({color:0x2194ce});
+  if(shape==='cube') g=new THREE.BoxGeometry(d.a,d.a,d.a);
+  else if(shape==='cuboid') g=new THREE.BoxGeometry(d.l,d.h,d.w);
+  else if(shape==='sphere') g=new THREE.SphereGeometry(d.r,32,32);
+  else if(shape==='cylinder') g=new THREE.CylinderGeometry(d.r,d.r,d.h,32);
+  else if(shape==='cone') g=new THREE.ConeGeometry(d.r,d.h,32);
+  mesh=new THREE.Mesh(g,m);
+  mesh.position.set(0, d.h?d.h/2: (d.a?d.a/2: d.r), 0);
+  scene.add(mesh);
+}
+
+function calculate(){
+  const s=document.getElementById('shape').value;
+  let a=0,v=0,d={};
+  let steps="";
+  const pi=Math.PI;
+  
+  if(s==='cube'){
+    let x=+document.getElementById('a').value;d={a:x};
+    steps = `المساحة = 6 × (الضلع²)\n`
+          + `        = 6 × (${x}²)\n`
+          + `        = 6 × ${x*x}\n`
+          + `        = ${6*x*x}\n\n`
+          + `الحجم   = الضلع³\n`
+          + `        = ${x}³\n`
+          + `        = ${x**3}`;
+    a=6*x*x; v=x**3;
+  }
+  else if(s==='cuboid'){
+    let l=+document.getElementById('l').value,w=+document.getElementById('w').value,h=+document.getElementById('h').value;d={l,w,h};
+    steps = `المساحة = 2 × (lw + lh + wh)\n`
+          + `        = 2 × (${l}×${w} + ${l}×${h} + ${w}×${h})\n`
+          + `        = 2 × (${l*w} + ${l*h} + ${w*h})\n`
+          + `        = ${2*(l*w+l*h+w*h)}\n\n`
+          + `الحجم   = l × w × h\n`
+          + `        = ${l} × ${w} × ${h}\n`
+          + `        = ${l*w*h}`;
+    a=2*(l*w+l*h+w*h); v=l*w*h;
+  }
+  else if(s==='sphere'){
+    let r=+document.getElementById('r').value;d={r};
+    steps = `المساحة = 4πr²\n`
+          + `        = 4 × π × ${r}²\n`
+          + `        = 4 × π × ${r*r}\n`
+          + `        ≈ ${(4*pi*r*r).toFixed(2)}\n\n`
+          + `الحجم   = 4/3 × π × r³\n`
+          + `        = 4/3 × π × ${r}³\n`
+          + `        = 4/3 × π × ${r**3}\n`
+          + `        ≈ ${(4/3*pi*r**3).toFixed(2)}`;
+    a=4*pi*r*r; v=4/3*pi*r**3;
+  }
+  else if(s==='cylinder'){
+    let r=+document.getElementById('r').value,h=+document.getElementById('h').value;d={r,h};
+    steps = `المساحة = 2πr(r+h)\n`
+          + `        = 2 × π × ${r} × (${r}+${h})\n`
+          + `        = 2 × π × ${r*(r+h)}\n`
+          + `        ≈ ${(2*pi*r*(r+h)).toFixed(2)}\n\n`
+          + `الحجم   = πr²h\n`
+          + `        = π × ${r}² × ${h}\n`
+          + `        = π × ${r*r*h}\n`
+          + `        ≈ ${(pi*r*r*h).toFixed(2)}`;
+    a=2*pi*r*(r+h); v=pi*r*r*h;
+  }
+  else if(s==='cone'){
+    let r=+document.getElementById('r').value,h=+document.getElementById('h').value;d={r,h};
+    let l=Math.sqrt(r*r+h*h);
+    steps = `المساحة = πr(r+l)\n`
+          + `        = π × ${r} × (${r}+${l.toFixed(2)})\n`
+          + `        ≈ ${(pi*r*(r+l)).toFixed(2)}\n\n`
+          + `الحجم   = 1/3 × π × r² × h\n`
+          + `        = 1/3 × π × ${r}² × ${h}\n`
+          + `        = 1/3 × π × ${r*r*h}\n`
+          + `        ≈ ${(pi*r*r*h/3).toFixed(2)}`;
+    a=pi*r*(r+l); v=pi*r*r*h/3;
+  }
+  
+  document.getElementById('result').innerHTML =
+    `<strong>المساحة = ${a.toFixed(2)}<br>الحجم = ${v.toFixed(2)}</strong><br><br>`+
+    `<pre>${steps}</pre>`;
+  
+  drawShape(s,d);
+}
+
+function animate(){
+  requestAnimationFrame(animate);
+  if(mesh){ mesh.rotation.y += 0.005; }
+  renderer.render(scene,camera);
+}
+
+document.getElementById('shape').addEventListener('change',updateInputs);
+init();
+updateInputs();
+calculate();
+</script>
+</body>
+</html>
